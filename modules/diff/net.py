@@ -57,7 +57,13 @@ def silu(x):
 class ResidualBlock(nn.Module):
     def __init__(self, encoder_hidden, residual_channels, dilation):
         super().__init__()
-        self.dilated_conv = Conv1d(residual_channels, 2 * residual_channels, 3, padding=dilation, dilation=dilation)
+        self.dilated_conv = Conv1d(
+            residual_channels,
+            2 * residual_channels,
+            3,
+            padding=dilation,
+            dilation=dilation,
+        )
         self.diffusion_projection = Linear(residual_channels, residual_channels)
         self.conditioner_projection = Conv1d(encoder_hidden, 2 * residual_channels, 1)
         self.output_projection = Conv1d(residual_channels, 2 * residual_channels, 1)
@@ -88,24 +94,30 @@ class DiffNet(nn.Module):
         super().__init__()
         self.params = params = AttrDict(
             # Model params
-            encoder_hidden=hparams['hidden_size'],
-            residual_layers=hparams['residual_layers'],
-            residual_channels=hparams['residual_channels'],
-            dilation_cycle_length=hparams['dilation_cycle_length'],
+            encoder_hidden=hparams["hidden_size"],
+            residual_layers=hparams["residual_layers"],
+            residual_channels=hparams["residual_channels"],
+            dilation_cycle_length=hparams["dilation_cycle_length"],
         )
         self.input_projection = Conv1d(in_dims, params.residual_channels, 1)
         self.diffusion_embedding = SinusoidalPosEmb(params.residual_channels)
         dim = params.residual_channels
         self.mlp = nn.Sequential(
-            nn.Linear(dim, dim * 4),
-            Mish(),
-            nn.Linear(dim * 4, dim)
+            nn.Linear(dim, dim * 4), Mish(), nn.Linear(dim * 4, dim)
         )
-        self.residual_layers = nn.ModuleList([
-            ResidualBlock(params.encoder_hidden, params.residual_channels, 2 ** (i % params.dilation_cycle_length))
-            for i in range(params.residual_layers)
-        ])
-        self.skip_projection = Conv1d(params.residual_channels, params.residual_channels, 1)
+        self.residual_layers = nn.ModuleList(
+            [
+                ResidualBlock(
+                    params.encoder_hidden,
+                    params.residual_channels,
+                    2 ** (i % params.dilation_cycle_length),
+                )
+                for i in range(params.residual_layers)
+            ]
+        )
+        self.skip_projection = Conv1d(
+            params.residual_channels, params.residual_channels, 1
+        )
         self.output_projection = Conv1d(params.residual_channels, in_dims, 1)
         nn.init.zeros_(self.output_projection.weight)
 

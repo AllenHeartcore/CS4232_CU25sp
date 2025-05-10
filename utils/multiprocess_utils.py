@@ -16,12 +16,15 @@ def chunked_worker(worker_id, map_func, args, results_queue=None, init_ctx_func=
             traceback.print_exc()
             results_queue.put((job_idx, None))
 
-def chunked_multiprocess_run(map_func, args, num_workers=None, ordered=True, init_ctx_func=None, q_max_size=1000):
+
+def chunked_multiprocess_run(
+    map_func, args, num_workers=None, ordered=True, init_ctx_func=None, q_max_size=1000
+):
     args = zip(range(len(args)), args)
     args = list(args)
     n_jobs = len(args)
     if num_workers is None:
-        num_workers = int(os.getenv('N_PROC', os.cpu_count()))
+        num_workers = int(os.getenv("N_PROC", os.cpu_count()))
     results_queues = []
     if ordered:
         for i in range(num_workers):
@@ -33,8 +36,11 @@ def chunked_multiprocess_run(map_func, args, num_workers=None, ordered=True, ini
     workers = []
     for i in range(num_workers):
         args_worker = args[i::num_workers]
-        p = Process(target=chunked_worker, args=(
-            i, map_func, args_worker, results_queues[i], init_ctx_func), daemon=True)
+        p = Process(
+            target=chunked_worker,
+            args=(i, map_func, args_worker, results_queues[i], init_ctx_func),
+            daemon=True,
+        )
         workers.append(p)
         p.start()
     for n_finished in range(n_jobs):

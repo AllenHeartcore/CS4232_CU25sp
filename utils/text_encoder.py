@@ -22,7 +22,7 @@ else:
 # '\\' is converted to '\'
 # '\213;' is converted to unichr(213)
 _UNESCAPE_REGEX = re.compile(r"\\u|\\\\|\\([0-9]+);")
-_ESCAPE_CHARS = set(u"\\_u;0123456789")
+_ESCAPE_CHARS = set("\\_u;0123456789")
 
 
 def strip_ids(ids, ids_to_strip):
@@ -148,21 +148,23 @@ class ByteTextEncoder(TextEncoder):
 
 
 class ByteTextEncoderWithEos(ByteTextEncoder):
-  """Encodes each byte to an id and appends the EOS token."""
+    """Encodes each byte to an id and appends the EOS token."""
 
-  def encode(self, s):
+    def encode(self, s):
         return super(ByteTextEncoderWithEos, self).encode(s) + [EOS_ID]
 
 
 class TokenTextEncoder(TextEncoder):
     """Encoder based on a user-supplied vocabulary (file or list)."""
 
-    def __init__(self,
-               vocab_filename,
-               reverse=False,
-               vocab_list=None,
-               replace_oov=None,
-               num_reserved_ids=NUM_RESERVED_TOKENS):
+    def __init__(
+        self,
+        vocab_filename,
+        reverse=False,
+        vocab_list=None,
+        replace_oov=None,
+        num_reserved_ids=NUM_RESERVED_TOKENS,
+    ):
         """Initialize from a file or list, one token per line.
 
         Handling of reserved tokens works as follows:
@@ -192,15 +194,18 @@ class TokenTextEncoder(TextEncoder):
         self.pad_index = self._token_to_id[PAD]
         self.eos_index = self._token_to_id[EOS]
         self.unk_index = self._token_to_id[UNK]
-        self.seg_index = self._token_to_id[SEG] if SEG in self._token_to_id else self.eos_index
+        self.seg_index = (
+            self._token_to_id[SEG] if SEG in self._token_to_id else self.eos_index
+        )
 
     def encode(self, s):
         """Converts a space-separated string of tokens to a list of ids."""
         sentence = s
         tokens = sentence.strip().split()
         if self._replace_oov is not None:
-            tokens = [t if t in self._token_to_id else self._replace_oov
-                        for t in tokens]
+            tokens = [
+                t if t in self._token_to_id else self._replace_oov for t in tokens
+            ]
         ret = [self._token_to_id[tok] for tok in tokens]
         return ret[::-1] if self._reverse else ret
 
@@ -251,6 +256,7 @@ class TokenTextEncoder(TextEncoder):
         Args:
         vocab_list: A list of tokens.
         """
+
         def token_gen():
             for token in vocab_list:
                 if token not in RESERVED_TOKENS:
@@ -269,11 +275,11 @@ class TokenTextEncoder(TextEncoder):
             non_reserved_start_index = len(RESERVED_TOKENS)
 
         self._id_to_token.update(
-            enumerate(token_generator, start=non_reserved_start_index))
+            enumerate(token_generator, start=non_reserved_start_index)
+        )
 
         # _token_to_id is the reverse of _id_to_token
-        self._token_to_id = dict((v, k)
-                                for k, v in six.iteritems(self._id_to_token))
+        self._token_to_id = dict((v, k) for k, v in six.iteritems(self._id_to_token))
 
     def pad(self):
         return self.pad_index

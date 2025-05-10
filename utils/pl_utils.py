@@ -2,7 +2,7 @@ import matplotlib
 from torch.nn import DataParallel
 from torch.nn.parallel import DistributedDataParallel
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 import glob
 import itertools
 import subprocess
@@ -52,7 +52,7 @@ def data_loader(fn):
     """
 
     wraps(fn)
-    attr_name = '_lazy_' + fn.__name__
+    attr_name = "_lazy_" + fn.__name__
 
     def _get_data_loader(self):
         try:
@@ -61,15 +61,15 @@ def data_loader(fn):
             try:
                 value = fn(self)  # Lazy evaluation, done only once.
                 if (
-                        value is not None and
-                        not isinstance(value, list) and
-                        fn.__name__ in ['test_dataloader', 'val_dataloader']
+                    value is not None
+                    and not isinstance(value, list)
+                    and fn.__name__ in ["test_dataloader", "val_dataloader"]
                 ):
                     value = [value]
             except AttributeError as e:
                 # Guard against AttributeError suppression. (Issue #142)
                 traceback.print_exc()
-                error = f'{fn.__name__}: An AttributeError was encountered: ' + str(e)
+                error = f"{fn.__name__}: An AttributeError was encountered: " + str(e)
                 raise RuntimeError(error) from e
             setattr(self, attr_name, value)  # Memoize evaluation.
         return value
@@ -142,10 +142,12 @@ def parallel_apply(modules, inputs, kwargs_tup=None, devices=None):  # pragma: n
         m.testing = root_m.testing
 
     if len(modules) > 1:
-        threads = [threading.Thread(target=_worker,
-                                    args=(i, module, input, kwargs, device))
-                   for i, (module, input, kwargs, device) in
-                   enumerate(zip(modules, inputs, kwargs_tup, devices))]
+        threads = [
+            threading.Thread(target=_worker, args=(i, module, input, kwargs, device))
+            for i, (module, input, kwargs, device) in enumerate(
+                zip(modules, inputs, kwargs_tup, devices)
+            )
+        ]
 
         for thread in threads:
             thread.start()
@@ -182,7 +184,9 @@ class DDP(DistributedDataParallel):
     """
 
     def parallel_apply(self, replicas, inputs, kwargs):
-        return parallel_apply(replicas, inputs, kwargs, self.device_ids[:len(replicas)])
+        return parallel_apply(
+            replicas, inputs, kwargs, self.device_ids[: len(replicas)]
+        )
 
     def forward(self, *inputs, **kwargs):  # pragma: no cover
         self._sync_params()
@@ -202,7 +206,9 @@ class DDP(DistributedDataParallel):
                 else:
                     output = self.module.validation_step(*inputs[0], **kwargs[0])
             else:
-                outputs = self.parallel_apply(self._module_copies[:len(inputs)], inputs, kwargs)
+                outputs = self.parallel_apply(
+                    self._module_copies[: len(inputs)], inputs, kwargs
+                )
                 output = self.gather(outputs, self.output_device)
         else:
             # normal
@@ -232,9 +238,11 @@ class DP(DataParallel):
 
         for t in itertools.chain(self.module.parameters(), self.module.buffers()):
             if t.device != self.src_device_obj:
-                raise RuntimeError("module must have its parameters and buffers "
-                                   "on device {} (device_ids[0]) but found one of "
-                                   "them on device: {}".format(self.src_device_obj, t.device))
+                raise RuntimeError(
+                    "module must have its parameters and buffers "
+                    "on device {} (device_ids[0]) but found one of "
+                    "them on device: {}".format(self.src_device_obj, t.device)
+                )
 
         inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
         if len(self.device_ids) == 1:
@@ -246,12 +254,14 @@ class DP(DataParallel):
             else:
                 return self.module.validation_step(*inputs[0], **kwargs[0])
 
-        replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
+        replicas = self.replicate(self.module, self.device_ids[: len(inputs)])
         outputs = self.parallel_apply(replicas, inputs, kwargs)
         return self.gather(outputs, self.output_device)
 
     def parallel_apply(self, replicas, inputs, kwargs):
-        return parallel_apply(replicas, inputs, kwargs, self.device_ids[:len(replicas)])
+        return parallel_apply(
+            replicas, inputs, kwargs, self.device_ids[: len(replicas)]
+        )
 
 
 class GradientAccumulationScheduler:
@@ -282,8 +292,18 @@ class GradientAccumulationScheduler:
 
 
 class LatestModelCheckpoint(ModelCheckpoint):
-    def __init__(self, filepath, monitor='val_loss', verbose=0, num_ckpt_keep=5,
-                 save_weights_only=False, mode='auto', period=1, prefix='model', save_best=True):
+    def __init__(
+        self,
+        filepath,
+        monitor="val_loss",
+        verbose=0,
+        num_ckpt_keep=5,
+        save_weights_only=False,
+        mode="auto",
+        period=1,
+        prefix="model",
+        save_best=True,
+    ):
         super(ModelCheckpoint, self).__init__()
         self.monitor = monitor
         self.verbose = verbose
@@ -297,89 +317,95 @@ class LatestModelCheckpoint(ModelCheckpoint):
         self.prefix = prefix
         self.best_k_models = {}
         # {filename: monitor}
-        self.kth_best_model = ''
+        self.kth_best_model = ""
         self.save_top_k = 1
         self.task = None
-        if mode == 'min':
+        if mode == "min":
             self.monitor_op = np.less
             self.best = np.Inf
-            self.mode = 'min'
-        elif mode == 'max':
+            self.mode = "min"
+        elif mode == "max":
             self.monitor_op = np.greater
             self.best = -np.Inf
-            self.mode = 'max'
+            self.mode = "max"
         else:
-            if 'acc' in self.monitor or self.monitor.startswith('fmeasure'):
+            if "acc" in self.monitor or self.monitor.startswith("fmeasure"):
                 self.monitor_op = np.greater
                 self.best = -np.Inf
-                self.mode = 'max'
+                self.mode = "max"
             else:
                 self.monitor_op = np.less
                 self.best = np.Inf
-                self.mode = 'min'
-        if os.path.exists(f'{self.filepath}/best_valid.npy'):
-            self.best = np.load(f'{self.filepath}/best_valid.npy')[0]
+                self.mode = "min"
+        if os.path.exists(f"{self.filepath}/best_valid.npy"):
+            self.best = np.load(f"{self.filepath}/best_valid.npy")[0]
 
     def get_all_ckpts(self):
-        return sorted(glob.glob(f'{self.filepath}/{self.prefix}_ckpt_steps_*.ckpt'),
-                      key=lambda x: -int(re.findall('.*steps\_(\d+)\.ckpt', x)[0]))
+        return sorted(
+            glob.glob(f"{self.filepath}/{self.prefix}_ckpt_steps_*.ckpt"),
+            key=lambda x: -int(re.findall(".*steps\_(\d+)\.ckpt", x)[0]),
+        )
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
         self.epochs_since_last_check += 1
-        best_filepath = f'{self.filepath}/{self.prefix}_ckpt_best.pt'
+        best_filepath = f"{self.filepath}/{self.prefix}_ckpt_best.pt"
         if self.epochs_since_last_check >= self.period:
             self.epochs_since_last_check = 0
-            filepath = f'{self.filepath}/{self.prefix}_ckpt_steps_{self.task.global_step}.ckpt'
+            filepath = (
+                f"{self.filepath}/{self.prefix}_ckpt_steps_{self.task.global_step}.ckpt"
+            )
             if self.verbose > 0:
-                logging.info(f'Epoch {epoch:05d}@{self.task.global_step}: saving model to {filepath}')
+                logging.info(
+                    f"Epoch {epoch:05d}@{self.task.global_step}: saving model to {filepath}"
+                )
             self._save_model(filepath)
-            for old_ckpt in self.get_all_ckpts()[self.num_ckpt_keep:]:
+            for old_ckpt in self.get_all_ckpts()[self.num_ckpt_keep :]:
                 # TODO: test filesystem calls
                 os.remove(old_ckpt)
                 # subprocess.check_call(f'del "{old_ckpt}"', shell=True)
                 if self.verbose > 0:
-                    logging.info(f'Delete ckpt: {os.path.basename(old_ckpt)}')
+                    logging.info(f"Delete ckpt: {os.path.basename(old_ckpt)}")
             current = logs.get(self.monitor)
             if current is not None and self.save_best:
                 if self.monitor_op(current, self.best):
                     self.best = current
                     if self.verbose > 0:
                         logging.info(
-                            f'Epoch {epoch:05d}@{self.task.global_step}: {self.monitor} reached'
-                            f' {current:0.5f} (best {self.best:0.5f}), saving model to'
-                            f' {best_filepath} as top 1')
+                            f"Epoch {epoch:05d}@{self.task.global_step}: {self.monitor} reached"
+                            f" {current:0.5f} (best {self.best:0.5f}), saving model to"
+                            f" {best_filepath} as top 1"
+                        )
                     self._save_model(best_filepath)
-                    np.save(f'{self.filepath}/best_valid.npy', [self.best])
-    
-    def _save_model(self,path):
-        return self.save_function(path)
+                    np.save(f"{self.filepath}/best_valid.npy", [self.best])
 
+    def _save_model(self, path):
+        return self.save_function(path)
 
 
 class BaseTrainer:
     def __init__(
-            self,
-            logger=True,
-            checkpoint_callback=True,
-            default_save_path=None,
-            gradient_clip_val=0,
-            process_position=0,
-            gpus=-1,
-            log_gpu_memory=None,
-            show_progress_bar=True,
-            track_grad_norm=-1,
-            check_val_every_n_epoch=1,
-            accumulate_grad_batches=1,
-            max_updates=1000,
-            min_epochs=1,
-            val_check_interval=1.0,
-            log_save_interval=100,
-            row_log_interval=10,
-            print_nan_grads=False,
-            weights_summary='full',
-            num_sanity_val_steps=5,
-            resume_from_checkpoint=None,
+        self,
+        logger=True,
+        checkpoint_callback=True,
+        default_save_path=None,
+        gradient_clip_val=0,
+        process_position=0,
+        gpus=-1,
+        log_gpu_memory=None,
+        show_progress_bar=True,
+        track_grad_norm=-1,
+        check_val_every_n_epoch=1,
+        accumulate_grad_batches=1,
+        max_updates=1000,
+        min_epochs=1,
+        val_check_interval=1.0,
+        log_save_interval=100,
+        row_log_interval=10,
+        print_nan_grads=False,
+        weights_summary="full",
+        num_sanity_val_steps=5,
+        resume_from_checkpoint=None,
     ):
         self.log_gpu_memory = log_gpu_memory
         self.gradient_clip_val = gradient_clip_val
@@ -430,7 +456,10 @@ class BaseTrainer:
 
         # allow int, string and gpu list
         self.data_parallel_device_ids = [
-            int(x) for x in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",") if x != '']
+            int(x)
+            for x in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")
+            if x != ""
+        ]
         if len(self.data_parallel_device_ids) == 0:
             self.root_gpu = None
             self.on_gpu = False
@@ -442,7 +471,7 @@ class BaseTrainer:
         self.use_ddp = False
         self.use_dp = False
         self.single_gpu = False
-        self.distributed_backend = 'ddp' if self.num_gpus > 0 else 'dp'
+        self.distributed_backend = "ddp" if self.num_gpus > 0 else "dp"
         self.set_distributed_mode(self.distributed_backend)
 
         self.proc_rank = 0
@@ -486,7 +515,9 @@ class BaseTrainer:
         else:
             model.model = model.build_model()
             if not self.testing:
-                self.optimizers, self.lr_schedulers = self.init_optimizers(model.configure_optimizers())
+                self.optimizers, self.lr_schedulers = self.init_optimizers(
+                    model.configure_optimizers()
+                )
             if self.use_dp:
                 model.cuda(self.root_gpu)
                 model = DP(model, device_ids=self.data_parallel_device_ids)
@@ -560,24 +591,39 @@ class BaseTrainer:
         ref_model.on_train_start()
         if not self.disable_validation and self.num_sanity_val_steps > 0:
             # init progress bars for validation sanity check
-            pbar = tqdm.tqdm(desc='Validation sanity check',
-                             total=self.num_sanity_val_steps * len(self.get_val_dataloaders()),
-                             leave=False, position=2 * self.process_position,
-                             disable=not self.show_progress_bar, dynamic_ncols=True, unit='batch')
+            pbar = tqdm.tqdm(
+                desc="Validation sanity check",
+                total=self.num_sanity_val_steps * len(self.get_val_dataloaders()),
+                leave=False,
+                position=2 * self.process_position,
+                disable=not self.show_progress_bar,
+                dynamic_ncols=True,
+                unit="batch",
+            )
             self.main_progress_bar = pbar
             # dummy validation progress bar
             self.val_progress_bar = tqdm.tqdm(disable=True)
 
-            self.evaluate(model, self.get_val_dataloaders(), self.num_sanity_val_steps, self.testing)
+            self.evaluate(
+                model,
+                self.get_val_dataloaders(),
+                self.num_sanity_val_steps,
+                self.testing,
+            )
 
             # close progress bars
             self.main_progress_bar.close()
             self.val_progress_bar.close()
 
         # init progress bar
-        pbar = tqdm.tqdm(leave=True, position=2 * self.process_position,
-                         disable=not self.show_progress_bar, dynamic_ncols=True, unit='batch',
-                         file=sys.stdout)
+        pbar = tqdm.tqdm(
+            leave=True,
+            position=2 * self.process_position,
+            disable=not self.show_progress_bar,
+            dynamic_ncols=True,
+            unit="batch",
+            file=sys.stdout,
+        )
         self.main_progress_bar = pbar
 
         # clear cache before training
@@ -594,7 +640,7 @@ class BaseTrainer:
     @property
     def training_tqdm_dict(self):
         tqdm_dict = {
-            'step': '{}'.format(self.global_step),
+            "step": "{}".format(self.global_step),
         }
         tqdm_dict.update(self.tqdm_metrics)
         return tqdm_dict
@@ -635,7 +681,9 @@ class BaseTrainer:
         did_restore = False
 
         # do nothing if there's not dir or callback
-        no_ckpt_callback = (self.checkpoint_callback is None) or (not self.checkpoint_callback)
+        no_ckpt_callback = (self.checkpoint_callback is None) or (
+            not self.checkpoint_callback
+        )
         if no_ckpt_callback or not os.path.exists(self.checkpoint_callback.filepath):
             return did_restore
 
@@ -646,10 +694,10 @@ class BaseTrainer:
         # find last epoch
         checkpoints = os.listdir(self.checkpoint_callback.filepath)
         for name in checkpoints:
-            if '.ckpt' in name and not name.endswith('part'):
-                if 'steps_' in name:
-                    steps = name.split('steps_')[1]
-                    steps = int(re.sub('[^0-9]', '', steps))
+            if ".ckpt" in name and not name.endswith("part"):
+                if "steps_" in name:
+                    steps = name.split("steps_")[1]
+                    steps = int(re.sub("[^0-9]", "", steps))
 
                     if steps > last_steps:
                         last_steps = steps
@@ -657,21 +705,25 @@ class BaseTrainer:
 
         # restore last checkpoint
         if last_ckpt_name is not None:
-            last_ckpt_path = os.path.join(self.checkpoint_callback.filepath, last_ckpt_name)
+            last_ckpt_path = os.path.join(
+                self.checkpoint_callback.filepath, last_ckpt_name
+            )
             self.restore(last_ckpt_path, self.on_gpu)
-            logging.info(f'model and trainer restored from checkpoint: {last_ckpt_path}')
+            logging.info(
+                f"model and trainer restored from checkpoint: {last_ckpt_path}"
+            )
             did_restore = True
 
         return did_restore
 
     def restore(self, checkpoint_path, on_gpu):
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
 
         # load model state
         model = self.get_model()
 
         # load the state_dict on the model automatically
-        model.load_state_dict(checkpoint['state_dict'], strict=False)
+        model.load_state_dict(checkpoint["state_dict"], strict=False)
         if on_gpu:
             model.cuda(self.root_gpu)
         # load training state (affects trainer only)
@@ -693,18 +745,21 @@ class BaseTrainer:
         :param checkpoint:
         :return:
         """
-        if self.checkpoint_callback is not None and self.checkpoint_callback is not False:
+        if (
+            self.checkpoint_callback is not None
+            and self.checkpoint_callback is not False
+        ):
             # return allowing checkpoints with meta information (global_step, etc)
-            self.checkpoint_callback.best = checkpoint['checkpoint_callback_best']
+            self.checkpoint_callback.best = checkpoint["checkpoint_callback_best"]
 
-        self.global_step = checkpoint['global_step']
-        self.current_epoch = checkpoint['epoch']
+        self.global_step = checkpoint["global_step"]
+        self.current_epoch = checkpoint["epoch"]
 
         if self.testing:
             return
 
         # restore the optimizers
-        optimizer_states = checkpoint['optimizer_states']
+        optimizer_states = checkpoint["optimizer_states"]
         for optimizer, opt_state in zip(self.optimizers, optimizer_states):
             if optimizer is None:
                 return
@@ -719,7 +774,7 @@ class BaseTrainer:
                             state[k] = v.cuda(self.root_gpu)
 
         # restore the lr schedulers
-        lr_schedulers = checkpoint['lr_schedulers']
+        lr_schedulers = checkpoint["lr_schedulers"]
         for scheduler, lrs_state in zip(self.lr_schedulers, lr_schedulers):
             scheduler.load_state_dict(lrs_state)
 
@@ -749,13 +804,13 @@ class BaseTrainer:
 
     def dump_checkpoint(self):
 
-        checkpoint = {
-            'epoch': self.current_epoch,
-            'global_step': self.global_step
-        }
+        checkpoint = {"epoch": self.current_epoch, "global_step": self.global_step}
 
-        if self.checkpoint_callback is not None and self.checkpoint_callback is not False:
-            checkpoint['checkpoint_callback_best'] = self.checkpoint_callback.best
+        if (
+            self.checkpoint_callback is not None
+            and self.checkpoint_callback is not False
+        ):
+            checkpoint["checkpoint_callback_best"] = self.checkpoint_callback.best
 
         # save optimizers
         optimizer_states = []
@@ -763,18 +818,18 @@ class BaseTrainer:
             if optimizer is not None:
                 optimizer_states.append(optimizer.state_dict())
 
-        checkpoint['optimizer_states'] = optimizer_states
+        checkpoint["optimizer_states"] = optimizer_states
 
         # save lr schedulers
         lr_schedulers = []
         for i, scheduler in enumerate(self.lr_schedulers):
             lr_schedulers.append(scheduler.state_dict())
 
-        checkpoint['lr_schedulers'] = lr_schedulers
+        checkpoint["lr_schedulers"] = lr_schedulers
 
         # add the hparams and state_dict from the model
         model = self.get_model()
-        checkpoint['state_dict'] = model.state_dict()
+        checkpoint["state_dict"] = model.state_dict()
         # give the model a chance to add a few things
         model.on_save_checkpoint(checkpoint)
 
@@ -798,11 +853,11 @@ class BaseTrainer:
 
     def transfer_batch_to_gpu(self, batch, gpu_id):
         # base case: object can be directly moved using `cuda` or `to`
-        if callable(getattr(batch, 'cuda', None)):
+        if callable(getattr(batch, "cuda", None)):
             return batch.cuda(gpu_id, non_blocking=True)
 
-        elif callable(getattr(batch, 'to', None)):
-            return batch.to(torch.device('cuda', gpu_id), non_blocking=True)
+        elif callable(getattr(batch, "to", None)):
+            return batch.to(torch.device("cuda", gpu_id), non_blocking=True)
 
         # when list
         elif isinstance(batch, list):
@@ -843,13 +898,13 @@ class BaseTrainer:
             self.data_parallel_device_ids = [0]
         else:
             if distributed_backend is not None:
-                self.use_dp = distributed_backend == 'dp'
-                self.use_ddp = distributed_backend == 'ddp'
+                self.use_dp = distributed_backend == "dp"
+                self.use_ddp = distributed_backend == "ddp"
             elif distributed_backend is None:
                 self.use_dp = True
                 self.use_ddp = False
 
-        logging.info(f'gpu available: {torch.cuda.is_available()}, used: {self.on_gpu}')
+        logging.info(f"gpu available: {torch.cuda.is_available()}, used: {self.on_gpu}")
 
     def ddp_train(self, gpu_idx, model):
         """
@@ -863,7 +918,9 @@ class BaseTrainer:
         self.node_rank = 0
 
         # show progressbar only on progress_rank 0
-        self.show_progress_bar = self.show_progress_bar and self.node_rank == 0 and gpu_idx == 0
+        self.show_progress_bar = (
+            self.show_progress_bar and self.node_rank == 0 and gpu_idx == 0
+        )
 
         # determine which process we are and world size
         if self.use_ddp:
@@ -884,11 +941,13 @@ class BaseTrainer:
         # allow for lr schedulers as well
         model.model = model.build_model()
         if not self.testing:
-            self.optimizers, self.lr_schedulers = self.init_optimizers(model.configure_optimizers())
+            self.optimizers, self.lr_schedulers = self.init_optimizers(
+                model.configure_optimizers()
+            )
 
         # MODEL
         # copy model to each gpu
-        if self.distributed_backend == 'ddp':
+        if self.distributed_backend == "ddp":
             torch.cuda.set_device(gpu_idx)
         model.cuda(gpu_idx)
 
@@ -898,7 +957,7 @@ class BaseTrainer:
         # override root GPU
         self.root_gpu = gpu_idx
 
-        if self.distributed_backend == 'ddp':
+        if self.distributed_backend == "ddp":
             device_ids = [gpu_idx]
         else:
             device_ids = None
@@ -910,13 +969,13 @@ class BaseTrainer:
         self.run_pretrain_routine(model)
 
     def resolve_root_node_address(self, root_node):
-        if '[' in root_node:
-            name = root_node.split('[')[0]
-            number = root_node.split(',')[0]
-            if '-' in number:
-                number = number.split('-')[0]
+        if "[" in root_node:
+            name = root_node.split("[")[0]
+            number = root_node.split(",")[0]
+            if "-" in number:
+                number = number.split("-")[0]
 
-            number = re.sub('[^0-9]', '', number)
+            number = re.sub("[^0-9]", "", number)
             root_node = name + number
 
         return root_node
@@ -928,7 +987,7 @@ class BaseTrainer:
         :param grad_norm_dic:
         """
         # added metrics by Lightning for convenience
-        metrics['epoch'] = self.current_epoch
+        metrics["epoch"] = self.current_epoch
 
         # add norms
         metrics.update(grad_norm_dic)
@@ -975,12 +1034,14 @@ class BaseTrainer:
         # all keys not progress_bar or log are candidates for callbacks
         callback_metrics = {}
         for k, v in output.items():
-            if k not in ['progress_bar', 'log', 'hiddens']:
+            if k not in ["progress_bar", "log", "hiddens"]:
                 callback_metrics[k] = v
 
         if train and self.use_dp:
             num_gpus = self.num_gpus
-            callback_metrics = self.reduce_distributed_output(callback_metrics, num_gpus)
+            callback_metrics = self.reduce_distributed_output(
+                callback_metrics, num_gpus
+            )
 
         for k, v in callback_metrics.items():
             if isinstance(v, torch.Tensor):
@@ -990,12 +1051,14 @@ class BaseTrainer:
         # EXTRACT PROGRESS BAR KEYS
         # ---------------
         try:
-            progress_output = output['progress_bar']
+            progress_output = output["progress_bar"]
 
             # reduce progress metrics for tqdm when using dp
             if train and self.use_dp:
                 num_gpus = self.num_gpus
-                progress_output = self.reduce_distributed_output(progress_output, num_gpus)
+                progress_output = self.reduce_distributed_output(
+                    progress_output, num_gpus
+                )
 
             progress_bar_metrics = progress_output
         except Exception:
@@ -1006,7 +1069,7 @@ class BaseTrainer:
         # ---------------
         # extract metrics to log to experiment
         try:
-            log_output = output['log']
+            log_output = output["log"]
 
             # reduce progress metrics for tqdm when using dp
             if train and self.use_dp:
@@ -1025,13 +1088,13 @@ class BaseTrainer:
         loss = None
         if train:
             try:
-                loss = output['loss']
+                loss = output["loss"]
             except Exception:
                 if type(output) is torch.Tensor:
                     loss = output
                 else:
                     raise RuntimeError(
-                        'No `loss` value in the dictionary returned from `model.training_step()`.'
+                        "No `loss` value in the dictionary returned from `model.training_step()`."
                     )
 
             # when using dp need to reduce the loss
@@ -1041,7 +1104,7 @@ class BaseTrainer:
         # ---------------
         # EXTRACT HIDDEN
         # ---------------
-        hiddens = output.get('hiddens')
+        hiddens = output.get("hiddens")
 
         # use every metric passed in as a candidate for callback
         callback_metrics.update(progress_bar_metrics)
@@ -1093,7 +1156,9 @@ class BaseTrainer:
         self.accumulate_grad_batches = None
 
         if isinstance(accumulate_grad_batches, dict):
-            self.accumulation_scheduler = GradientAccumulationScheduler(accumulate_grad_batches)
+            self.accumulation_scheduler = GradientAccumulationScheduler(
+                accumulate_grad_batches
+            )
         elif isinstance(accumulate_grad_batches, int):
             schedule = {1: accumulate_grad_batches}
             self.accumulation_scheduler = GradientAccumulationScheduler(schedule)
@@ -1122,13 +1187,15 @@ class BaseTrainer:
             self.num_training_batches = len(self.get_train_dataloader())
             self.num_training_batches = int(self.num_training_batches)
         else:
-            self.num_training_batches = float('inf')
+            self.num_training_batches = float("inf")
             self.is_iterable_train_dataloader = True
         if isinstance(self.val_check_interval, int):
             self.val_check_batch = self.val_check_interval
         else:
-            self._percent_range_check('val_check_interval')
-            self.val_check_batch = int(self.num_training_batches * self.val_check_interval)
+            self._percent_range_check("val_check_interval")
+            self.val_check_batch = int(
+                self.num_training_batches * self.val_check_interval
+            )
             self.val_check_batch = max(1, self.val_check_batch)
 
     def init_val_dataloader(self, model):
@@ -1136,19 +1203,23 @@ class BaseTrainer:
         self.num_val_batches = 0
         if self.get_val_dataloaders() is not None:
             if isinstance(self.get_val_dataloaders()[0], torch.utils.data.DataLoader):
-                self.num_val_batches = sum(len(dataloader) for dataloader in self.get_val_dataloaders())
+                self.num_val_batches = sum(
+                    len(dataloader) for dataloader in self.get_val_dataloaders()
+                )
                 self.num_val_batches = int(self.num_val_batches)
             else:
-                self.num_val_batches = float('inf')
+                self.num_val_batches = float("inf")
 
     def init_test_dataloader(self, model):
         self.get_test_dataloaders = model.test_dataloader
         if self.get_test_dataloaders() is not None:
             if isinstance(self.get_test_dataloaders()[0], torch.utils.data.DataLoader):
-                self.num_test_batches = sum(len(dataloader) for dataloader in self.get_test_dataloaders())
+                self.num_test_batches = sum(
+                    len(dataloader) for dataloader in self.get_test_dataloaders()
+                )
                 self.num_test_batches = int(self.num_test_batches)
             else:
-                self.num_test_batches = float('inf')
+                self.num_test_batches = float("inf")
 
     def evaluate(self, model, dataloaders, max_batches, test=False):
         """Run evaluation code.
@@ -1189,11 +1260,9 @@ class BaseTrainer:
                 # -----------------
                 # RUN EVALUATION STEP
                 # -----------------
-                output = self.evaluation_forward(model,
-                                                 batch,
-                                                 batch_idx,
-                                                 dataloader_idx,
-                                                 test)
+                output = self.evaluation_forward(
+                    model, batch, batch_idx, dataloader_idx, test
+                )
 
                 # track outputs for collation
                 dl_outputs.append(output)
@@ -1242,20 +1311,25 @@ class BaseTrainer:
         # init validation or test progress bar
         # main progress bar will already be closed when testing so initial position is free
         position = 2 * self.process_position + (not test)
-        desc = 'Testing' if test else 'Validating'
-        pbar = tqdm.tqdm(desc=desc, total=max_batches, leave=test, position=position,
-                         disable=not self.show_progress_bar, dynamic_ncols=True,
-                         unit='batch', file=sys.stdout)
+        desc = "Testing" if test else "Validating"
+        pbar = tqdm.tqdm(
+            desc=desc,
+            total=max_batches,
+            leave=test,
+            position=position,
+            disable=not self.show_progress_bar,
+            dynamic_ncols=True,
+            unit="batch",
+            file=sys.stdout,
+        )
         setattr(self, f'{"test" if test else "val"}_progress_bar', pbar)
 
         # run evaluation
-        eval_results = self.evaluate(self.model,
-                                     dataloaders,
-                                     max_batches,
-                                     test)
+        eval_results = self.evaluate(self.model, dataloaders, max_batches, test)
         if eval_results is not None:
             _, prog_bar_metrics, log_metrics, callback_metrics, _ = self.process_output(
-                eval_results)
+                eval_results
+            )
 
             # add metrics to prog bar
             self.add_tqdm_metrics(prog_bar_metrics)
@@ -1282,8 +1356,9 @@ class BaseTrainer:
 
         # model checkpointing
         if self.proc_rank == 0 and self.checkpoint_callback is not None and not test:
-            self.checkpoint_callback.on_epoch_end(epoch=self.current_epoch,
-                                                  logs=self.callback_metrics)
+            self.checkpoint_callback.on_epoch_end(
+                epoch=self.current_epoch, logs=self.callback_metrics
+            )
 
     def evaluation_forward(self, model, batch, batch_idx, dataloader_idx, test=False):
         # make dataloader_idx arg in validation_step optional
@@ -1322,7 +1397,9 @@ class BaseTrainer:
         # run all epochs
         for epoch in range(self.current_epoch, 1000000):
             # set seed for distributed sampler (enables shuffling for each epoch)
-            if self.use_ddp and hasattr(self.get_train_dataloader().sampler, 'set_epoch'):
+            if self.use_ddp and hasattr(
+                self.get_train_dataloader().sampler, "set_epoch"
+            ):
                 self.get_train_dataloader().sampler.set_epoch(epoch)
 
             # get model
@@ -1335,7 +1412,9 @@ class BaseTrainer:
             total_val_batches = 0
             if not self.disable_validation:
                 # val can be checked multiple times in epoch
-                is_val_epoch = (self.current_epoch + 1) % self.check_val_every_n_epoch == 0
+                is_val_epoch = (
+                    self.current_epoch + 1
+                ) % self.check_val_every_n_epoch == 0
                 val_checks_per_epoch = self.num_training_batches // self.val_check_batch
                 val_checks_per_epoch = val_checks_per_epoch if is_val_epoch else 0
                 total_val_batches = self.num_val_batches * val_checks_per_epoch
@@ -1352,7 +1431,7 @@ class BaseTrainer:
 
             # reset progress bar
             # .reset() doesn't work on disabled progress bar so we should check
-            desc = f'Epoch {epoch + 1}' if not self.is_iterable_train_dataloader else ''
+            desc = f"Epoch {epoch + 1}" if not self.is_iterable_train_dataloader else ""
             self.main_progress_bar.set_description(desc)
 
             # changing gradient according accumulation_scheduler
@@ -1377,7 +1456,7 @@ class BaseTrainer:
 
     def run_training_epoch(self):
         # before epoch hook
-        if self.is_function_implemented('on_epoch_start'):
+        if self.is_function_implemented("on_epoch_start"):
             model = self.get_model()
             model.on_epoch_start()
 
@@ -1405,20 +1484,27 @@ class BaseTrainer:
             # RUN VAL STEP
             # ---------------
             should_check_val = (
-                    not self.disable_validation and self.global_step % self.val_check_batch == 0 and not self.fisrt_epoch)
+                not self.disable_validation
+                and self.global_step % self.val_check_batch == 0
+                and not self.fisrt_epoch
+            )
             self.fisrt_epoch = False
 
             if should_check_val:
                 self.run_evaluation(test=self.testing)
 
             # when logs should be saved
-            should_save_log = (batch_idx + 1) % self.log_save_interval == 0 or early_stop_epoch
+            should_save_log = (
+                batch_idx + 1
+            ) % self.log_save_interval == 0 or early_stop_epoch
             if should_save_log:
                 if self.proc_rank == 0 and self.logger is not None:
                     self.logger.save()
 
             # when metrics should be logged
-            should_log_metrics = batch_idx % self.row_log_interval == 0 or early_stop_epoch
+            should_log_metrics = (
+                batch_idx % self.row_log_interval == 0 or early_stop_epoch
+            )
             if should_log_metrics:
                 # logs user requested information to logger
                 self.log_metrics(batch_step_metrics, grad_norm_dic)
@@ -1436,7 +1522,7 @@ class BaseTrainer:
                 exit()
 
         # epoch end hook
-        if self.is_function_implemented('on_epoch_end'):
+        if self.is_function_implemented("on_epoch_end"):
             model = self.get_model()
             model.on_epoch_end()
 
@@ -1454,7 +1540,7 @@ class BaseTrainer:
             return 0, grad_norm_dic, {}
 
         # hook
-        if self.is_function_implemented('on_batch_start'):
+        if self.is_function_implemented("on_batch_start"):
             model_ref = self.get_model()
             response = model_ref.on_batch_start(batch)
 
@@ -1476,14 +1562,15 @@ class BaseTrainer:
                     for param in self.get_model().parameters():
                         param.requires_grad = False
                     for group in optimizer.param_groups:
-                        for param in group['params']:
+                        for param in group["params"]:
                             param.requires_grad = True
 
                 # wrap the forward step in a closure so second order methods work
                 def optimizer_closure():
                     # forward pass
                     output = self.training_forward(
-                        split_batch, batch_idx, opt_idx, self.hiddens)
+                        split_batch, batch_idx, opt_idx, self.hiddens
+                    )
 
                     closure_loss = output[0]
                     progress_bar_metrics = output[1]
@@ -1510,7 +1597,7 @@ class BaseTrainer:
                     all_log_metrics.append(log_metrics)
 
                     # insert after step hook
-                    if self.is_function_implemented('on_after_backward'):
+                    if self.is_function_implemented("on_after_backward"):
                         model_ref = self.get_model()
                         model_ref.on_after_backward()
 
@@ -1535,8 +1622,7 @@ class BaseTrainer:
                     if batch_idx % self.row_log_interval == 0:
                         if self.track_grad_norm > 0:
                             model = self.get_model()
-                            grad_norm_dic = model.grad_norm(
-                                self.track_grad_norm)
+                            grad_norm_dic = model.grad_norm(self.track_grad_norm)
 
                     # clip gradients
                     self.clip_gradients()
@@ -1544,7 +1630,9 @@ class BaseTrainer:
                     # calls .step(), .zero_grad()
                     # override function to modify this behavior
                     model = self.get_model()
-                    model.optimizer_step(self.current_epoch, batch_idx, optimizer, opt_idx)
+                    model.optimizer_step(
+                        self.current_epoch, batch_idx, optimizer, opt_idx
+                    )
 
                     # calculate running loss for display
                     self.running_loss.append(self.batch_loss_value)
@@ -1552,7 +1640,7 @@ class BaseTrainer:
                     self.avg_loss = np.mean(self.running_loss[-100:])
 
         # activate batch end hook
-        if self.is_function_implemented('on_batch_end'):
+        if self.is_function_implemented("on_batch_end"):
             model = self.get_model()
             model.on_batch_end()
 
@@ -1564,7 +1652,9 @@ class BaseTrainer:
         all_log_metrics = {k: v for d in all_log_metrics for k, v in d.items()}
 
         # track all metrics for callbacks
-        self.callback_metrics.update({k: v for d in all_callback_metrics for k, v in d.items()})
+        self.callback_metrics.update(
+            {k: v for d in all_callback_metrics for k, v in d.items()}
+        )
 
         return 0, grad_norm_dic, all_log_metrics
 
@@ -1621,5 +1711,5 @@ class BaseTrainer:
         if name == "val_check_interval":
             msg += " If you want to disable validation set `val_percent_check` to 0.0 instead."
 
-        if not 0. <= value <= 1.:
+        if not 0.0 <= value <= 1.0:
             raise ValueError(msg)

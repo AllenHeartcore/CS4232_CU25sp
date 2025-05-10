@@ -9,14 +9,14 @@ class IndexedDataset:
         super().__init__()
         self.path = path
         self.data_file = None
-        self.data_offsets = np.load(f"{path}.idx", allow_pickle=True).item()['offsets']
-        self.data_file = open(f"{path}.data", 'rb', buffering=-1)
+        self.data_offsets = np.load(f"{path}.idx", allow_pickle=True).item()["offsets"]
+        self.data_file = open(f"{path}.data", "rb", buffering=-1)
         self.cache = []
         self.num_cache = num_cache
 
     def check_index(self, i):
         if i < 0 or i >= len(self.data_offsets) - 1:
-            raise IndexError('index out of range')
+            raise IndexError("index out of range")
 
     def __del__(self):
         if self.data_file:
@@ -38,10 +38,11 @@ class IndexedDataset:
     def __len__(self):
         return len(self.data_offsets) - 1
 
+
 class IndexedDatasetBuilder:
     def __init__(self, path):
         self.path = path
-        self.out_file = open(f"{path}.data", 'wb')
+        self.out_file = open(f"{path}.data", "wb")
         self.byte_offsets = [0]
 
     def add_item(self, item):
@@ -51,16 +52,22 @@ class IndexedDatasetBuilder:
 
     def finalize(self):
         self.out_file.close()
-        np.save(open(f"{self.path}.idx", 'wb'), {'offsets': self.byte_offsets})
+        np.save(open(f"{self.path}.idx", "wb"), {"offsets": self.byte_offsets})
 
 
 if __name__ == "__main__":
     import random
     from tqdm import tqdm
-    ds_path = '/tmp/indexed_ds_example'
+
+    ds_path = "/tmp/indexed_ds_example"
     size = 100
-    items = [{"a": np.random.normal(size=[10000, 10]),
-              "b": np.random.normal(size=[10000, 10])} for i in range(size)]
+    items = [
+        {
+            "a": np.random.normal(size=[10000, 10]),
+            "b": np.random.normal(size=[10000, 10]),
+        }
+        for i in range(size)
+    ]
     builder = IndexedDatasetBuilder(ds_path)
     for i in tqdm(range(size)):
         builder.add_item(items[i])
@@ -68,4 +75,4 @@ if __name__ == "__main__":
     ds = IndexedDataset(ds_path)
     for i in tqdm(range(10000)):
         idx = random.randint(0, size - 1)
-        assert (ds[idx]['a'] == items[idx]['a']).all()
+        assert (ds[idx]["a"] == items[idx]["a"]).all()

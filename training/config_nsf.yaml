@@ -3,12 +3,12 @@ accumulate_grad_batches: 1
 audio_num_mel_bins: 128
 audio_sample_rate: 44100
 binarization_args:
-  shuffle: false
-  with_align: true
-  with_f0: true
-  with_hubert: true
-  with_spk_embed: false
-  with_wav: false
+    shuffle: false
+    with_align: true
+    with_f0: true
+    with_hubert: true
+    with_spk_embed: false
+    with_wav: false
 binarizer_cls: preprocessing.SVCpre.SVCBinarizer
 binary_data_dir: data/binary/nyaru
 check_val_every_n_epoch: 10
@@ -22,22 +22,22 @@ cwt_layers: 2
 cwt_loss: l1
 cwt_std_scale: 0.8
 datasets:
-- opencpop
+    - opencpop
 debug: false
 dec_ffn_kernel_size: 9
 dec_layers: 4
 decay_steps: 40000
 decoder_type: fft
-dict_dir: ''
+dict_dir: ""
 diff_decoder_type: wavenet
 diff_loss_type: l2
 dilation_cycle_length: 4
 dropout: 0.1
 ds_workers: 4
 dur_enc_hidden_stride_kernel:
-- 0,2,3
-- 0,2,3
-- 0,1,3
+    - 0,2,3
+    - 0,2,3
+    - 0,1,3
 dur_loss: mse
 dur_predictor_kernel: 3
 dur_predictor_layers: 5
@@ -54,9 +54,9 @@ ffn_padding: SAME
 fft_size: 2048
 fmax: 16000
 fmin: 40
-fs2_ckpt: ''
+fs2_ckpt: ""
 gaussian_start: true
-gen_dir_name: ''
+gen_dir_name: ""
 gen_tgt_spk_id: -1
 hidden_size: 256
 hop_size: 512
@@ -71,7 +71,7 @@ lambda_ph_dur: 0.3
 lambda_sent_dur: 1.0
 lambda_uv: 1.0
 lambda_word_dur: 1.0
-load_ckpt: ''
+load_ckpt: ""
 log_interval: 100
 loud_norm: false
 lr: 0.0008
@@ -103,21 +103,21 @@ pe_enable: false
 perform_enhance: true
 pitch_ar: false
 pitch_enc_hidden_stride_kernel:
-- 0,2,5
-- 0,2,5
-- 0,2,5
+    - 0,2,5
+    - 0,2,5
+    - 0,2,5
 pitch_extractor: parselmouth
 pitch_loss: l2
 pitch_norm: log
 pitch_type: frame
 pndm_speedup: 10
 pre_align_args:
-  allow_no_txt: false
-  denoise: false
-  forced_align: mfa
-  txt_processor: zh_g2pM
-  use_sox: true
-  use_tone: false
+    allow_no_txt: false
+    denoise: false
+    forced_align: mfa
+    txt_processor: zh_g2pM
+    use_sox: true
+    use_tone: false
 pre_align_cls: data_gen.singing.pre_align.SingingPreAlign
 predictor_dropout: 0.5
 predictor_grad: 0.1
@@ -126,7 +126,7 @@ predictor_kernel: 5
 predictor_layers: 5
 prenet_dropout: 0.5
 prenet_hidden_size: 256
-pretrain_fs_ckpt: ''
+pretrain_fs_ckpt: ""
 processed_data_dir: xxx
 profile_infer: false
 raw_data_dir: data/raw/nyaru
@@ -138,10 +138,10 @@ residual_layers: 20
 save_best: false
 save_ckpt: true
 save_codes:
-- configs
-- modules
-- src
-- utils
+    - configs
+    - modules
+    - src
+    - utils
 save_f0: true
 save_gt: false
 schedule_type: linear
@@ -149,17 +149,17 @@ seed: 1234
 sort_by_len: true
 speaker_id: nyaru
 spec_max:
-- 0.0
+    - 0.0
 spec_min:
-- -5.0
+    - -5.0
 spk_cond_steps: []
 stop_token_weight: 5.0
 task_cls: training.task.SVC_task.SVCTask
 test_ids: []
-test_input_dir: ''
+test_input_dir: ""
 test_num: 0
 test_prefixes:
-- test
+    - test
 test_set_name: test
 timesteps: 1000
 train_set_name: train
