@@ -14,7 +14,7 @@ binary_data_dir: data/binary/gkmskcna
 check_val_every_n_epoch: 10
 choose_test_manually: false
 clip_grad_norm: 1
-config_path: training/config_nsf.yaml
+config_path: training/config_kcna.yaml
 content_cond_steps: []
 cwt_add_f0_loss: false
 cwt_hidden_size: 128
