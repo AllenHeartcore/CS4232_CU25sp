@@ -3,7 +3,6 @@ from webbrowser import get
 
 os.environ["OMP_NUM_THREADS"] = "1"
 import yaml
-from utils.multiprocess_utils import chunked_multiprocess_run
 import random
 import json
 from tqdm import tqdm
@@ -105,20 +104,6 @@ class BaseBinarizer:
         use hubert encoder
         """
         raise NotImplementedError
-        """
-            create 'phone_set.json' file if it doesn't exist
-        """
-        ph_set_fn = f"{hparams['binary_data_dir']}/phone_set.json"
-        ph_set = []
-        if hparams["reset_phone_dict"] or not os.path.exists(ph_set_fn):
-            self.load_ph_set(ph_set)
-            ph_set = sorted(set(ph_set))
-            json.dump(ph_set, open(ph_set_fn, "w", encoding="utf-8"))
-            print("| Build phone set: ", ph_set)
-        else:
-            ph_set = json.load(open(ph_set_fn, "r", encoding="utf-8"))
-            print("| Load phone set: ", ph_set)
-        return build_phone_encoder(hparams["binary_data_dir"])
 
     def load_ph_set(self, ph_set):
         raise NotImplementedError
@@ -212,17 +197,6 @@ class BaseBinarizer:
               it may not be compatible with the current version.
         """
         return
-        tg_fn, ph = meta_data["tg_fn"], meta_data["ph"]
-        if tg_fn is not None and os.path.exists(tg_fn):
-            mel2ph, dur = get_mel2ph(tg_fn, ph, mel, hparams)
-        else:
-            raise BinarizationError(f"Align not found")
-        if mel2ph.max() - 1 >= len(phone_encoded):
-            raise BinarizationError(
-                f"Align does not match: mel2ph.max() - 1: {mel2ph.max() - 1}, len(phone_encoded): {len(phone_encoded)}"
-            )
-        res["mel2ph"] = mel2ph
-        res["dur"] = dur
 
     def get_f0cwt(self, f0, res):
         """
@@ -230,18 +204,6 @@ class BaseBinarizer:
               it may not be compatible with the current version.
         """
         return
-        from utils.cwt import get_cont_lf0, get_lf0_cwt
-
-        uv, cont_lf0_lpf = get_cont_lf0(f0)
-        logf0s_mean_org, logf0s_std_org = np.mean(cont_lf0_lpf), np.std(cont_lf0_lpf)
-        cont_lf0_lpf_norm = (cont_lf0_lpf - logf0s_mean_org) / logf0s_std_org
-        Wavelet_lf0, scales = get_lf0_cwt(cont_lf0_lpf_norm)
-        if np.any(np.isnan(Wavelet_lf0)):
-            raise BinarizationError("NaN CWT")
-        res["cwt_spec"] = Wavelet_lf0
-        res["cwt_scales"] = scales
-        res["f0_mean"] = logf0s_mean_org
-        res["f0_std"] = logf0s_std_org
 
 
 if __name__ == "__main__":

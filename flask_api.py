@@ -31,7 +31,9 @@ def voice_change_model():
         use_pe=False,
         use_crepe=False,
     )
-    tar_audio = librosa.resample(_audio, hparams["audio_sample_rate"], daw_sample)
+    tar_audio = librosa.resample(
+        _audio, orig_sr=hparams["audio_sample_rate"], target_sr=daw_sample
+    )
     out_wav_path = io.BytesIO()
     soundfile.write(out_wav_path, tar_audio, daw_sample, format="wav")
     out_wav_path.seek(0)

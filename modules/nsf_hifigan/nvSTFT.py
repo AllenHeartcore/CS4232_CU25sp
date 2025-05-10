@@ -110,11 +110,6 @@ class STFT:
         fmax = self.fmax
         clip_val = self.clip_val
 
-        if torch.min(y) < -1.0:
-            print("min value is ", torch.min(y))
-        if torch.max(y) > 1.0:
-            print("max value is ", torch.max(y))
-
         if fmax not in self.mel_basis:
             mel = librosa_mel_fn(
                 sr=sampling_rate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax
@@ -143,6 +138,7 @@ class STFT:
             pad_mode="reflect",
             normalized=False,
             onesided=True,
+            return_complex=False,
         )
         spec = torch.sqrt(spec.pow(2).sum(-1) + (1e-9))
         spec = torch.matmul(self.mel_basis[str(fmax) + "_" + str(y.device)], spec)

@@ -10,7 +10,7 @@ binarization_args:
     with_spk_embed: false
     with_wav: false
 binarizer_cls: preprocessing.SVCpre.SVCBinarizer
-binary_data_dir: data/binary/nyaru
+binary_data_dir: data/binary/gkmsfktn
 check_val_every_n_epoch: 10
 choose_test_manually: false
 clip_grad_norm: 1
@@ -129,7 +129,7 @@ prenet_hidden_size: 256
 pretrain_fs_ckpt: ""
 processed_data_dir: xxx
 profile_infer: false
-raw_data_dir: data/raw/nyaru
+raw_data_dir: data/raw/gkmsfktn
 ref_norm_layer: bn
 rel_pos: true
 reset_phone_dict: true
@@ -147,7 +147,7 @@ save_gt: false
 schedule_type: linear
 seed: 1234
 sort_by_len: true
-speaker_id: nyaru
+speaker_id: gkmsfktn
 spec_max:
     - 0.0
 spec_min:
@@ -187,5 +187,5 @@ warmup_updates: 2000
 wav2spec_eps: 1e-6
 weight_decay: 0
 win_size: 2048
-work_dir: checkpoints/nyaru
+work_dir: checkpoints/gkmsfktn
 no_fs2: true

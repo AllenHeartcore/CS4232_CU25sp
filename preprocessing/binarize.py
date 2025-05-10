@@ -4,6 +4,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 import importlib
 from utils.hparams import set_hparams, hparams
+from utils.seed import seed_everything
 
 
 def binarize():
@@ -16,5 +17,6 @@ def binarize():
 
 
 if __name__ == "__main__":
+    seed_everything(42)
     set_hparams()
     binarize()

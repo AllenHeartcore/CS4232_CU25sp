@@ -51,7 +51,9 @@ def trim_long_silences(
         if np.abs(wav_raw).max() > 1.0:
             wav_raw = wav_raw / np.abs(wav_raw).max()
 
-    wav = librosa.resample(wav_raw, sr, sampling_rate, res_type="kaiser_best")
+    wav = librosa.resample(
+        wav_raw, orig_sr=sr, target_sr=sampling_rate, res_type="kaiser_best"
+    )
 
     vad_window_length = 30  # In milliseconds
     # Number of frames to average together when performing the moving average smoothing.
@@ -222,10 +224,6 @@ def get_pitch_crepe(wav_data, mel, hparams, threshold=0.05):
     f0 = torchcrepe.filter.mean(f0, 3)
 
     f0 = torch.where(torch.isnan(f0), torch.full_like(f0, 0), f0)
-
-    """
-    np.savetxt('问棋-crepe.csv',np.array([0.005*np.arange(len(f0[0])),f0[0].cpu().numpy()]).transpose(),delimiter=',')
-    """
 
     nzindex = torch.nonzero(f0[0]).squeeze()
     f0 = torch.index_select(f0[0], dim=0, index=nzindex).cpu().numpy()

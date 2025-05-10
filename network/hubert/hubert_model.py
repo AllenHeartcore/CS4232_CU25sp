@@ -234,7 +234,7 @@ def get_units(hbt_soft, raw_wav_path, dev=torch.device("cuda")):
     if len(wav.shape) > 1:
         wav = librosa.to_mono(wav)
     if sr != 16000:
-        wav16 = librosa.resample(wav, sr, 16000)
+        wav16 = librosa.resample(wav, orig_sr=sr, target_sr=16000)
     else:
         wav16 = wav
     dev = torch.device(
