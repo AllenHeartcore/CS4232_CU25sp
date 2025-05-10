@@ -41,7 +41,7 @@ class Hubert(nn.Module):
         return x, mask
 
     def encode(
-            self, x: torch.Tensor, layer: Optional[int] = None
+        self, x: torch.Tensor, layer: Optional[int] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         x = self.feature_extractor(x)
         x = self.feature_projection(x.transpose(1, 2))
@@ -70,7 +70,6 @@ class HubertSoft(Hubert):
     def __init__(self):
         super().__init__()
 
-    # @torch.inference_mode()
     def units(self, wav: torch.Tensor) -> torch.Tensor:
         wav = torch.nn.functional.pad(wav, ((400 - 320) // 2, (400 - 320) // 2))
         x, _ = self.encode(wav)
@@ -137,7 +136,7 @@ class PositionalConvEmbedding(nn.Module):
 
 class TransformerEncoder(nn.Module):
     def __init__(
-            self, encoder_layer: nn.TransformerEncoderLayer, num_layers: int
+        self, encoder_layer: nn.TransformerEncoderLayer, num_layers: int
     ) -> None:
         super(TransformerEncoder, self).__init__()
         self.layers = nn.ModuleList(
@@ -146,11 +145,11 @@ class TransformerEncoder(nn.Module):
         self.num_layers = num_layers
 
     def forward(
-            self,
-            src: torch.Tensor,
-            mask: torch.Tensor = None,
-            src_key_padding_mask: torch.Tensor = None,
-            output_layer: Optional[int] = None,
+        self,
+        src: torch.Tensor,
+        mask: torch.Tensor = None,
+        src_key_padding_mask: torch.Tensor = None,
+        output_layer: Optional[int] = None,
     ) -> torch.Tensor:
         output = src
         for layer in self.layers[:output_layer]:
@@ -161,11 +160,11 @@ class TransformerEncoder(nn.Module):
 
 
 def _compute_mask(
-        shape: Tuple[int, int],
-        mask_prob: float,
-        mask_length: int,
-        device: torch.device,
-        min_masks: int = 0,
+    shape: Tuple[int, int],
+    mask_prob: float,
+    mask_length: int,
+    device: torch.device,
+    min_masks: int = 0,
 ) -> torch.Tensor:
     batch_size, sequence_length = shape
 
@@ -215,9 +214,7 @@ def _compute_mask(
     return mask
 
 
-def hubert_soft(
-        path: str
-) -> HubertSoft:
+def hubert_soft(path: str) -> HubertSoft:
     r"""HuBERT-Soft from `"A Comparison of Discrete and Soft Speech Units for Improved Voice Conversion"`.
     Args:
         path (str): path of a pretrained model
@@ -231,41 +228,45 @@ def hubert_soft(
     return hubert
 
 
-def get_units(hbt_soft, raw_wav_path, dev=torch.device('cuda')):
+def get_units(hbt_soft, raw_wav_path, dev=torch.device("cuda")):
     wav, sr = librosa.load(raw_wav_path, sr=None)
-    assert (sr >= 16000)
+    assert sr >= 16000
     if len(wav.shape) > 1:
         wav = librosa.to_mono(wav)
     if sr != 16000:
         wav16 = librosa.resample(wav, sr, 16000)
     else:
         wav16 = wav
-    dev = torch.device("cuda" if (dev == torch.device('cuda') and torch.cuda.is_available()) else "cpu")
+    dev = torch.device(
+        "cuda" if (dev == torch.device("cuda") and torch.cuda.is_available()) else "cpu"
+    )
     torch.cuda.is_available() and torch.cuda.empty_cache()
     with torch.inference_mode():
-        units = hbt_soft.units(torch.FloatTensor(wav16.astype(float)).unsqueeze(0).unsqueeze(0).to(dev))
+        units = hbt_soft.units(
+            torch.FloatTensor(wav16.astype(float)).unsqueeze(0).unsqueeze(0).to(dev)
+        )
         return units
 
 
 def get_end_file(dir_path, end):
     file_list = []
     for root, dirs, files in os.walk(dir_path):
-        files = [f for f in files if f[0] != '.']
-        dirs[:] = [d for d in dirs if d[0] != '.']
+        files = [f for f in files if f[0] != "."]
+        dirs[:] = [d for d in dirs if d[0] != "."]
         for f_file in files:
             if f_file.endswith(end):
                 file_list.append(os.path.join(root, f_file).replace("\\", "/"))
     return file_list
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from pathlib import Path
 
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # hubert的模型路径
-    hbt_model = hubert_soft(str(list(Path(hparams['hubert_path']).home().rglob('*.pt'))[0]))
-    # 这个不用改，自动在根目录下所有wav的同文件夹生成其对应的npy
-    file_lists = list(Path(hparams['raw_data_dir']).rglob('*.wav'))
+    hbt_model = hubert_soft(
+        str(list(Path(hparams["hubert_path"]).home().rglob("*.pt"))[0])
+    )
+    file_lists = list(Path(hparams["raw_data_dir"]).rglob("*.wav"))
     nums = len(file_lists)
     count = 0
     for wav_path in file_lists:

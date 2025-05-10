@@ -43,8 +43,8 @@ def trans_key(raw_data, key):
 
 
 key = -6
-f_w = open("raw.txt", "w", encoding='utf-8')
-with open("result.txt", "r", encoding='utf-8') as f:
+f_w = open("raw.txt", "w", encoding="utf-8")
+with open("result.txt", "r", encoding="utf-8") as f:
     raw_data = f.readlines()
     for raw in raw_data:
         raw_list = raw.split("|")

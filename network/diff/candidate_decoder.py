@@ -1,14 +1,13 @@
 from modules.fastspeech.tts_modules import FastspeechDecoder
-# from modules.fastspeech.fast_tacotron import DecoderRNN
-# from modules.fastspeech.speedy_speech.speedy_speech import ConvBlocks
-# from modules.fastspeech.conformer.conformer import ConformerDecoder
 import torch
 from torch.nn import functional as F
 import torch.nn as nn
 import math
 from utils.hparams import hparams
 from modules.commons.common_layers import Mish
+
 Linear = nn.Linear
+
 
 class SinusoidalPosEmb(nn.Module):
     def __init__(self, dim):
@@ -31,25 +30,34 @@ def Conv1d(*args, **kwargs):
     return layer
 
 
-class FFT(FastspeechDecoder): # unused, because DiffSinger only uses FastspeechEncoder
+class FFT(FastspeechDecoder):  # unused, because DiffSinger only uses FastspeechEncoder
     # NOTE: this part of script is *isolated* from other scripts, which means
     #       it may not be compatible with the current version.
-    
-    def __init__(self, hidden_size=None, num_layers=None, kernel_size=None, num_heads=None):
+
+    def __init__(
+        self, hidden_size=None, num_layers=None, kernel_size=None, num_heads=None
+    ):
         super().__init__(hidden_size, num_layers, kernel_size, num_heads=num_heads)
-        dim = hparams['residual_channels']
-        self.input_projection = Conv1d(hparams['audio_num_mel_bins'], dim, 1)
+        dim = hparams["residual_channels"]
+        self.input_projection = Conv1d(hparams["audio_num_mel_bins"], dim, 1)
         self.diffusion_embedding = SinusoidalPosEmb(dim)
         self.mlp = nn.Sequential(
-            nn.Linear(dim, dim * 4),
-            Mish(),
-            nn.Linear(dim * 4, dim)
+            nn.Linear(dim, dim * 4), Mish(), nn.Linear(dim * 4, dim)
         )
-        self.get_mel_out = Linear(hparams['hidden_size'], 80, bias=True)
-        self.get_decode_inp = Linear(hparams['hidden_size'] + dim + dim,
-                                     hparams['hidden_size'])  # hs + dim + 80 -> hs
+        self.get_mel_out = Linear(hparams["hidden_size"], 80, bias=True)
+        self.get_decode_inp = Linear(
+            hparams["hidden_size"] + dim + dim, hparams["hidden_size"]
+        )  # hs + dim + 80 -> hs
 
-    def forward(self, spec, diffusion_step, cond, padding_mask=None, attn_mask=None, return_hiddens=False):
+    def forward(
+        self,
+        spec,
+        diffusion_step,
+        cond,
+        padding_mask=None,
+        attn_mask=None,
+        return_hiddens=False,
+    ):
         """
         :param spec: [B, 1, 80, T]
         :param diffusion_step: [B, 1]
@@ -70,12 +78,16 @@ class FFT(FastspeechDecoder): # unused, because DiffSinger only uses FastspeechE
         decoder_inp = self.get_decode_inp(decoder_inp)  # [B, T, H]
         x = decoder_inp
 
-        '''
+        """
         Required x: [B, T, C]
         :return: [B, T, C] or [L, B, T, C]
-        '''
-        padding_mask = x.abs().sum(-1).eq(0).data if padding_mask is None else padding_mask
-        nonpadding_mask_TB = 1 - padding_mask.transpose(0, 1).float()[:, :, None]  # [T, B, 1]
+        """
+        padding_mask = (
+            x.abs().sum(-1).eq(0).data if padding_mask is None else padding_mask
+        )
+        nonpadding_mask_TB = (
+            1 - padding_mask.transpose(0, 1).float()[:, :, None]
+        )  # [T, B, 1]
         if self.use_pos_embed:
             positions = self.pos_embed_alpha * self.embed_positions(x[..., 0])
             x = x + positions
@@ -84,7 +96,10 @@ class FFT(FastspeechDecoder): # unused, because DiffSinger only uses FastspeechE
         x = x.transpose(0, 1) * nonpadding_mask_TB
         hiddens = []
         for layer in self.layers:
-            x = layer(x, encoder_padding_mask=padding_mask, attn_mask=attn_mask) * nonpadding_mask_TB
+            x = (
+                layer(x, encoder_padding_mask=padding_mask, attn_mask=attn_mask)
+                * nonpadding_mask_TB
+            )
             hiddens.append(x)
         if self.use_last_norm:
             x = self.layer_norm(x) * nonpadding_mask_TB

@@ -6,7 +6,13 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from modules.commons.espnet_positional_embedding import RelPositionalEncoding
-from modules.commons.common_layers import SinusoidalPositionalEmbedding, Linear, EncSALayer, DecSALayer, BatchNorm1dTBC
+from modules.commons.common_layers import (
+    SinusoidalPositionalEmbedding,
+    Linear,
+    EncSALayer,
+    DecSALayer,
+    BatchNorm1dTBC,
+)
 from utils.hparams import hparams
 
 DEFAULT_MAX_SOURCE_POSITIONS = 2000
@@ -14,18 +20,26 @@ DEFAULT_MAX_TARGET_POSITIONS = 2000
 
 
 class TransformerEncoderLayer(nn.Module):
-    def __init__(self, hidden_size, dropout, kernel_size=None, num_heads=2, norm='ln'):
+    def __init__(self, hidden_size, dropout, kernel_size=None, num_heads=2, norm="ln"):
         super().__init__()
         self.hidden_size = hidden_size
         self.dropout = dropout
         self.num_heads = num_heads
         self.op = EncSALayer(
-            hidden_size, num_heads, dropout=dropout,
-            attention_dropout=0.0, relu_dropout=dropout,
-            kernel_size=kernel_size
-            if kernel_size is not None else hparams['enc_ffn_kernel_size'],
-            padding=hparams['ffn_padding'],
-            norm=norm, act=hparams['ffn_act'])
+            hidden_size,
+            num_heads,
+            dropout=dropout,
+            attention_dropout=0.0,
+            relu_dropout=dropout,
+            kernel_size=(
+                kernel_size
+                if kernel_size is not None
+                else hparams["enc_ffn_kernel_size"]
+            ),
+            padding=hparams["ffn_padding"],
+            norm=norm,
+            act=hparams["ffn_act"],
+        )
 
     def forward(self, x, **kwargs):
         return self.op(x, **kwargs)
@@ -67,7 +81,16 @@ class DurationPredictor(torch.nn.Module):
         the outputs are calculated in log domain but in `inference`, those are calculated in linear domain.
     """
 
-    def __init__(self, idim, n_layers=2, n_chans=384, kernel_size=3, dropout_rate=0.1, offset=1.0, padding='SAME'):
+    def __init__(
+        self,
+        idim,
+        n_layers=2,
+        n_chans=384,
+        kernel_size=3,
+        dropout_rate=0.1,
+        offset=1.0,
+        padding="SAME",
+    ):
         """Initilize duration predictor module.
         Args:
             idim (int): Input dimension.
@@ -84,22 +107,32 @@ class DurationPredictor(torch.nn.Module):
         self.padding = padding
         for idx in range(n_layers):
             in_chans = idim if idx == 0 else n_chans
-            self.conv += [torch.nn.Sequential(
-                torch.nn.ConstantPad1d(((kernel_size - 1) // 2, (kernel_size - 1) // 2)
-                                       if padding == 'SAME'
-                                       else (kernel_size - 1, 0), 0),
-                torch.nn.Conv1d(in_chans, n_chans, kernel_size, stride=1, padding=0),
-                torch.nn.ReLU(),
-                LayerNorm(n_chans, dim=1),
-                torch.nn.Dropout(dropout_rate)
-            )]
-        if hparams['dur_loss'] in ['mse', 'huber']:
+            self.conv += [
+                torch.nn.Sequential(
+                    torch.nn.ConstantPad1d(
+                        (
+                            ((kernel_size - 1) // 2, (kernel_size - 1) // 2)
+                            if padding == "SAME"
+                            else (kernel_size - 1, 0)
+                        ),
+                        0,
+                    ),
+                    torch.nn.Conv1d(
+                        in_chans, n_chans, kernel_size, stride=1, padding=0
+                    ),
+                    torch.nn.ReLU(),
+                    LayerNorm(n_chans, dim=1),
+                    torch.nn.Dropout(dropout_rate),
+                )
+            ]
+        if hparams["dur_loss"] in ["mse", "huber"]:
             odims = 1
-        elif hparams['dur_loss'] == 'mog':
+        elif hparams["dur_loss"] == "mog":
             odims = 15
-        elif hparams['dur_loss'] == 'crf':
+        elif hparams["dur_loss"] == "crf":
             odims = 32
             from torchcrf import CRF
+
             self.crf = CRF(odims, batch_first=True)
         self.linear = torch.nn.Linear(n_chans, odims)
 
@@ -115,18 +148,20 @@ class DurationPredictor(torch.nn.Module):
         if is_inference:
             return self.out2dur(xs), xs
         else:
-            if hparams['dur_loss'] in ['mse']:
+            if hparams["dur_loss"] in ["mse"]:
                 xs = xs.squeeze(-1)  # (B, Tmax)
         return xs
 
     def out2dur(self, xs):
-        if hparams['dur_loss'] in ['mse']:
+        if hparams["dur_loss"] in ["mse"]:
             # NOTE: calculate in log domain
             xs = xs.squeeze(-1)  # (B, Tmax)
-            dur = torch.clamp(torch.round(xs.exp() - self.offset), min=0).long()  # avoid negative value
-        elif hparams['dur_loss'] == 'mog':
+            dur = torch.clamp(
+                torch.round(xs.exp() - self.offset), min=0
+            ).long()  # avoid negative value
+        elif hparams["dur_loss"] == "mog":
             return NotImplementedError
-        elif hparams['dur_loss'] == 'crf':
+        elif hparams["dur_loss"] == "crf":
             dur = torch.LongTensor(self.crf.decode(xs)).cuda()
         return dur
 
@@ -181,17 +216,27 @@ class LengthRegulator(torch.nn.Module):
             dur = dur * (1 - dur_padding.long())
         token_idx = torch.arange(1, dur.shape[1] + 1)[None, :, None].to(dur.device)
         dur_cumsum = torch.cumsum(dur, 1)
-        dur_cumsum_prev = F.pad(dur_cumsum, [1, -1], mode='constant', value=0)
+        dur_cumsum_prev = F.pad(dur_cumsum, [1, -1], mode="constant", value=0)
 
         pos_idx = torch.arange(dur.sum(-1).max())[None, None].to(dur.device)
-        token_mask = (pos_idx >= dur_cumsum_prev[:, :, None]) & (pos_idx < dur_cumsum[:, :, None])
+        token_mask = (pos_idx >= dur_cumsum_prev[:, :, None]) & (
+            pos_idx < dur_cumsum[:, :, None]
+        )
         mel2ph = (token_idx * token_mask.long()).sum(1)
         return mel2ph
 
 
 class PitchPredictor(torch.nn.Module):
-    def __init__(self, idim, n_layers=5, n_chans=384, odim=2, kernel_size=5,
-                 dropout_rate=0.1, padding='SAME'):
+    def __init__(
+        self,
+        idim,
+        n_layers=5,
+        n_chans=384,
+        odim=2,
+        kernel_size=5,
+        dropout_rate=0.1,
+        padding="SAME",
+    ):
         """Initilize pitch predictor module.
         Args:
             idim (int): Input dimension.
@@ -206,15 +251,24 @@ class PitchPredictor(torch.nn.Module):
         self.padding = padding
         for idx in range(n_layers):
             in_chans = idim if idx == 0 else n_chans
-            self.conv += [torch.nn.Sequential(
-                torch.nn.ConstantPad1d(((kernel_size - 1) // 2, (kernel_size - 1) // 2)
-                                       if padding == 'SAME'
-                                       else (kernel_size - 1, 0), 0),
-                torch.nn.Conv1d(in_chans, n_chans, kernel_size, stride=1, padding=0),
-                torch.nn.ReLU(),
-                LayerNorm(n_chans, dim=1),
-                torch.nn.Dropout(dropout_rate)
-            )]
+            self.conv += [
+                torch.nn.Sequential(
+                    torch.nn.ConstantPad1d(
+                        (
+                            ((kernel_size - 1) // 2, (kernel_size - 1) // 2)
+                            if padding == "SAME"
+                            else (kernel_size - 1, 0)
+                        ),
+                        0,
+                    ),
+                    torch.nn.Conv1d(
+                        in_chans, n_chans, kernel_size, stride=1, padding=0
+                    ),
+                    torch.nn.ReLU(),
+                    LayerNorm(n_chans, dim=1),
+                    torch.nn.Dropout(dropout_rate),
+                )
+            ]
         self.linear = torch.nn.Linear(n_chans, odim)
         self.embed_positions = SinusoidalPositionalEmbedding(idim, 0, init_size=4096)
         self.pos_embed_alpha = nn.Parameter(torch.Tensor([1]))
@@ -249,32 +303,52 @@ def mel2ph_to_dur(mel2ph, T_txt, max_dur=None):
 
 
 class FFTBlocks(nn.Module):
-    def __init__(self, hidden_size, num_layers, ffn_kernel_size=9, dropout=None, num_heads=2,
-                 use_pos_embed=True, use_last_norm=True, norm='ln', use_pos_embed_alpha=True):
+    def __init__(
+        self,
+        hidden_size,
+        num_layers,
+        ffn_kernel_size=9,
+        dropout=None,
+        num_heads=2,
+        use_pos_embed=True,
+        use_last_norm=True,
+        norm="ln",
+        use_pos_embed_alpha=True,
+    ):
         super().__init__()
         self.num_layers = num_layers
         embed_dim = self.hidden_size = hidden_size
-        self.dropout = dropout if dropout is not None else hparams['dropout']
+        self.dropout = dropout if dropout is not None else hparams["dropout"]
         self.use_pos_embed = use_pos_embed
         self.use_last_norm = use_last_norm
         if use_pos_embed:
             self.max_source_positions = DEFAULT_MAX_TARGET_POSITIONS
             self.padding_idx = 0
-            self.pos_embed_alpha = nn.Parameter(torch.Tensor([1])) if use_pos_embed_alpha else 1
+            self.pos_embed_alpha = (
+                nn.Parameter(torch.Tensor([1])) if use_pos_embed_alpha else 1
+            )
             self.embed_positions = SinusoidalPositionalEmbedding(
-                embed_dim, self.padding_idx, init_size=DEFAULT_MAX_TARGET_POSITIONS,
+                embed_dim,
+                self.padding_idx,
+                init_size=DEFAULT_MAX_TARGET_POSITIONS,
             )
 
         self.layers = nn.ModuleList([])
-        self.layers.extend([
-            TransformerEncoderLayer(self.hidden_size, self.dropout,
-                                    kernel_size=ffn_kernel_size, num_heads=num_heads)
-            for _ in range(self.num_layers)
-        ])
+        self.layers.extend(
+            [
+                TransformerEncoderLayer(
+                    self.hidden_size,
+                    self.dropout,
+                    kernel_size=ffn_kernel_size,
+                    num_heads=num_heads,
+                )
+                for _ in range(self.num_layers)
+            ]
+        )
         if self.use_last_norm:
-            if norm == 'ln':
+            if norm == "ln":
                 self.layer_norm = nn.LayerNorm(embed_dim)
-            elif norm == 'bn':
+            elif norm == "bn":
                 self.layer_norm = BatchNorm1dTBC(embed_dim)
         else:
             self.layer_norm = None
@@ -285,9 +359,12 @@ class FFTBlocks(nn.Module):
         :param padding_mask: [B, T]
         :return: [B, T, C] or [L, B, T, C]
         """
-        # padding_mask = x.abs().sum(-1).eq(0).data if padding_mask is None else padding_mask
-        padding_mask = x.abs().sum(-1).eq(0).detach() if padding_mask is None else padding_mask
-        nonpadding_mask_TB = 1 - padding_mask.transpose(0, 1).float()[:, :, None]  # [T, B, 1]
+        padding_mask = (
+            x.abs().sum(-1).eq(0).detach() if padding_mask is None else padding_mask
+        )
+        nonpadding_mask_TB = (
+            1 - padding_mask.transpose(0, 1).float()[:, :, None]
+        )  # [T, B, 1]
         if self.use_pos_embed:
             positions = self.pos_embed_alpha * self.embed_positions(x[..., 0])
             x = x + positions
@@ -296,7 +373,10 @@ class FFTBlocks(nn.Module):
         x = x.transpose(0, 1) * nonpadding_mask_TB
         hiddens = []
         for layer in self.layers:
-            x = layer(x, encoder_padding_mask=padding_mask, attn_mask=attn_mask) * nonpadding_mask_TB
+            x = (
+                layer(x, encoder_padding_mask=padding_mask, attn_mask=attn_mask)
+                * nonpadding_mask_TB
+            )
             hiddens.append(x)
         if self.use_last_norm:
             x = self.layer_norm(x) * nonpadding_mask_TB
@@ -309,25 +389,36 @@ class FFTBlocks(nn.Module):
 
 
 class FastspeechEncoder(FFTBlocks):
-    '''
-        compared to FFTBlocks:
-        - input is [B, T, H], not [B, T, C]
-        - supports "relative" positional encoding
-    '''
-    def __init__(self, hidden_size=None, num_layers=None, kernel_size=None, num_heads=2):
-        hidden_size = hparams['hidden_size'] if hidden_size is None else hidden_size
-        kernel_size = hparams['enc_ffn_kernel_size'] if kernel_size is None else kernel_size
-        num_layers = hparams['dec_layers'] if num_layers is None else num_layers
-        super().__init__(hidden_size, num_layers, kernel_size, num_heads=num_heads,
-                         use_pos_embed=False)  # use_pos_embed_alpha for compatibility
-        #self.embed_tokens = embed_tokens
+    """
+    compared to FFTBlocks:
+    - input is [B, T, H], not [B, T, C]
+    - supports "relative" positional encoding
+    """
+
+    def __init__(
+        self, hidden_size=None, num_layers=None, kernel_size=None, num_heads=2
+    ):
+        hidden_size = hparams["hidden_size"] if hidden_size is None else hidden_size
+        kernel_size = (
+            hparams["enc_ffn_kernel_size"] if kernel_size is None else kernel_size
+        )
+        num_layers = hparams["dec_layers"] if num_layers is None else num_layers
+        super().__init__(
+            hidden_size,
+            num_layers,
+            kernel_size,
+            num_heads=num_heads,
+            use_pos_embed=False,
+        )  # use_pos_embed_alpha for compatibility
         self.embed_scale = math.sqrt(hidden_size)
         self.padding_idx = 0
-        if hparams.get('rel_pos') is not None and hparams['rel_pos']:
+        if hparams.get("rel_pos") is not None and hparams["rel_pos"]:
             self.embed_positions = RelPositionalEncoding(hidden_size, dropout_rate=0.0)
         else:
             self.embed_positions = SinusoidalPositionalEmbedding(
-                hidden_size, self.padding_idx, init_size=DEFAULT_MAX_TARGET_POSITIONS,
+                hidden_size,
+                self.padding_idx,
+                init_size=DEFAULT_MAX_TARGET_POSITIONS,
             )
 
     def forward(self, hubert):
@@ -338,8 +429,7 @@ class FastspeechEncoder(FFTBlocks):
             'encoder_out': [T x B x C]
         }
         """
-        # encoder_padding_mask = txt_tokens.eq(self.padding_idx).data
-        encoder_padding_mask = (hubert==0).all(-1)
+        encoder_padding_mask = (hubert == 0).all(-1)
         x = self.forward_embedding(hubert)  # [B, T, H]
         x = super(FastspeechEncoder, self).forward(x, encoder_padding_mask)
         return x
@@ -347,7 +437,7 @@ class FastspeechEncoder(FFTBlocks):
     def forward_embedding(self, hubert):
         # embed tokens and positions
         x = self.embed_scale * hubert
-        if hparams['use_pos_embed']:
+        if hparams["use_pos_embed"]:
             positions = self.embed_positions(hubert)
             x = x + positions
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -355,10 +445,13 @@ class FastspeechEncoder(FFTBlocks):
 
 
 class FastspeechDecoder(FFTBlocks):
-    def __init__(self, hidden_size=None, num_layers=None, kernel_size=None, num_heads=None):
-        num_heads = hparams['num_heads'] if num_heads is None else num_heads
-        hidden_size = hparams['hidden_size'] if hidden_size is None else hidden_size
-        kernel_size = hparams['dec_ffn_kernel_size'] if kernel_size is None else kernel_size
-        num_layers = hparams['dec_layers'] if num_layers is None else num_layers
+    def __init__(
+        self, hidden_size=None, num_layers=None, kernel_size=None, num_heads=None
+    ):
+        num_heads = hparams["num_heads"] if num_heads is None else num_heads
+        hidden_size = hparams["hidden_size"] if hidden_size is None else hidden_size
+        kernel_size = (
+            hparams["dec_ffn_kernel_size"] if kernel_size is None else kernel_size
+        )
+        num_layers = hparams["dec_layers"] if num_layers is None else num_layers
         super().__init__(hidden_size, num_layers, kernel_size, num_heads=num_heads)
-

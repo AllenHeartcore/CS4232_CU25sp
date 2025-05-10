@@ -41,7 +41,9 @@ class AvgrageMeter(object):
         self.avg = self.sum / self.cnt
 
 
-def collate_1d(values, pad_idx=0, left_pad=False, shift_right=False, max_len=None, shift_id=1):
+def collate_1d(
+    values, pad_idx=0, left_pad=False, shift_right=False, max_len=None, shift_id=1
+):
     """Convert a list of 1d tensors into a padded 2d tensor."""
     size = max(v.size(0) for v in values) if max_len is None else max_len
     res = values[0].new(len(values), size).fill_(pad_idx)
@@ -55,7 +57,7 @@ def collate_1d(values, pad_idx=0, left_pad=False, shift_right=False, max_len=Non
             dst.copy_(src)
 
     for i, v in enumerate(values):
-        copy_tensor(v, res[i][size - len(v):] if left_pad else res[i][:len(v)])
+        copy_tensor(v, res[i][size - len(v) :] if left_pad else res[i][: len(v)])
     return res
 
 
@@ -72,7 +74,7 @@ def collate_2d(values, pad_idx=0, left_pad=False, shift_right=False, max_len=Non
             dst.copy_(src)
 
     for i, v in enumerate(values):
-        copy_tensor(v, res[i][size - len(v):] if left_pad else res[i][:len(v)])
+        copy_tensor(v, res[i][size - len(v) :] if left_pad else res[i][: len(v)])
     return res
 
 
@@ -87,8 +89,12 @@ def _is_batch_full(batch, num_tokens, max_tokens, max_sentences):
 
 
 def batch_by_size(
-        indices, num_tokens_fn, max_tokens=None, max_sentences=None,
-        required_batch_size_multiple=1, distributed=False
+    indices,
+    num_tokens_fn,
+    max_tokens=None,
+    max_sentences=None,
+    required_batch_size_multiple=1,
+    distributed=False,
 ):
     """
     Yield mini-batches of indices bucketed by size. Batches may contain
@@ -121,9 +127,10 @@ def batch_by_size(
         num_tokens = num_tokens_fn(idx)
         sample_lens.append(num_tokens)
         sample_len = max(sample_len, num_tokens)
-        assert sample_len <= max_tokens, (
-            "sentence at index {} of size {} exceeds max_tokens "
-            "limit of {}!".format(idx, sample_len, max_tokens)
+        assert (
+            sample_len <= max_tokens
+        ), "sentence at index {} of size {} exceeds max_tokens " "limit of {}!".format(
+            idx, sample_len, max_tokens
         )
         num_tokens = (len(batch) + 1) * sample_len
 
@@ -152,9 +159,7 @@ def make_positions(tensor, padding_idx):
     # prefers ints, cumsum defaults to output longs, and ONNX doesn't know
     # how to handle the dtype kwarg in cumsum.
     mask = tensor.ne(padding_idx).int()
-    return (
-                   torch.cumsum(mask, dim=1).type_as(mask) * mask
-           ).long() + padding_idx
+    return (torch.cumsum(mask, dim=1).type_as(mask) * mask).long() + padding_idx
 
 
 def softmax(x, dim):
@@ -163,7 +168,7 @@ def softmax(x, dim):
 
 def unpack_dict_to_list(samples):
     samples_ = []
-    bsz = samples.get('outputs').size(0)
+    bsz = samples.get("outputs").size(0)
     for i in range(bsz):
         res = {}
         for k, v in samples.items():
@@ -175,19 +180,30 @@ def unpack_dict_to_list(samples):
     return samples_
 
 
-def load_ckpt(cur_model, ckpt_base_dir, prefix_in_ckpt='model', force=True, strict=True):
+def load_ckpt(
+    cur_model, ckpt_base_dir, prefix_in_ckpt="model", force=True, strict=True
+):
     if os.path.isfile(ckpt_base_dir):
         base_dir = os.path.dirname(ckpt_base_dir)
         checkpoint_path = [ckpt_base_dir]
     else:
         base_dir = ckpt_base_dir
-        checkpoint_path = sorted(glob.glob(f'{base_dir}/model_ckpt_steps_*.ckpt'), key=
-        lambda x: int(re.findall(f'{base_dir}/model_ckpt_steps_(\d+).ckpt', x.replace('\\','/'))[0]))
+        checkpoint_path = sorted(
+            glob.glob(f"{base_dir}/model_ckpt_steps_*.ckpt"),
+            key=lambda x: int(
+                re.findall(
+                    f"{base_dir}/model_ckpt_steps_(\d+).ckpt", x.replace("\\", "/")
+                )[0]
+            ),
+        )
     if len(checkpoint_path) > 0:
         checkpoint_path = checkpoint_path[-1]
         state_dict = torch.load(checkpoint_path, map_location="cpu")["state_dict"]
-        state_dict = {k[len(prefix_in_ckpt) + 1:]: v for k, v in state_dict.items()
-                      if k.startswith(f'{prefix_in_ckpt}.')}
+        state_dict = {
+            k[len(prefix_in_ckpt) + 1 :]: v
+            for k, v in state_dict.items()
+            if k.startswith(f"{prefix_in_ckpt}.")
+        }
         if not strict:
             cur_model_state_dict = cur_model.state_dict()
             unmatched_keys = []
@@ -237,8 +253,7 @@ class Timer:
             print(self.name, Timer.timer_map[self.name])
 
 
-def print_arch(model, model_name='model'):
-    #print(f"| {model_name} Arch: ", model)
+def print_arch(model, model_name="model"):
     num_params(model, model_name=model_name)
 
 
@@ -246,5 +261,5 @@ def num_params(model, print_out=True, model_name="model"):
     parameters = filter(lambda p: p.requires_grad, model.parameters())
     parameters = sum([np.prod(p.size()) for p in parameters]) / 1_000_000
     if print_out:
-        print(f'| {model_name} Trainable Parameters: %.3fM' % parameters)
+        print(f"| {model_name} Trainable Parameters: %.3fM" % parameters)
     return parameters

@@ -5,11 +5,11 @@ import numpy as np
 import torch
 
 
-
 def load_model(vec_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("load model(s) from {}".format(vec_path))
     from fairseq import checkpoint_utils
+
     models, saved_cfg, task = checkpoint_utils.load_model_ensemble_and_task(
         [vec_path],
         suffix="",
@@ -44,12 +44,11 @@ def get_vec_units(con_model, audio_path, dev):
     return feats
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_path = "../../checkpoints/checkpoint_best_legacy_500.pt"  # checkpoint_best_legacy_500.pt
     vec_model = load_model(model_path)
-    # 这个不用改，自动在根目录下所有wav的同文件夹生成其对应的npy
-    file_lists = list(Path("../../data/vecfox").rglob('*.wav'))
+    file_lists = list(Path("../../data/vecfox").rglob("*.wav"))
     nums = len(file_lists)
     count = 0
     for wav_path in file_lists:
